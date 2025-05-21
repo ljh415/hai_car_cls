@@ -37,35 +37,30 @@ def build_model(backbone, num_classes, device=None):
             pretrained=True,
             num_classes=num_classes
         )
-        pass
-    elif backbone == "eff_vit":
+    elif backbone == "eff_v2":
         model = timm.create_model(
             "efficientnetv2_l",
-            pretrained=True,
+            pretrained=False,
             num_classes=num_classes
         )
-        pass
-    elif backbone == "eff_v2":
+    elif backbone == "eff_vit":
         model = timm.create_model(
             "efficientvit_l2",
             pretrained=True,
             num_classes=num_classes
         )
-        pass
     elif backbone == "vit_h":
         model = timm.create_model(
             "vit_huge_patch14_224",
             pretrained=True,
             num_classes=num_classes
         )
-        pass
     elif backbone == "vit_l":
         model = timm.create_model(
             "vit_large_patch16_224",
             pretrained=True,
             num_classes=num_classes
         )
-        pass
     else :
         raise Exception("다른거 쓰고 싶으면 너가 추가해")
     
