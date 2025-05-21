@@ -78,7 +78,7 @@ def main(args):
         
         if val_logloss < best_logloss:
             best_logloss = val_logloss
-            model_save_path = os.path.join(model_save_dir, f"{args.model}-{valid_acc}-{val_logloss}-best.pth")
+            model_save_path = os.path.join(model_save_dir, f"{args.model}-{epoch}-{val_logloss:.4f}-best.pth")
             torch.save(model.state_dict(), model_save_path)
             print(f"📦 Best model saved at epoch {epoch+1} (logloss: {val_logloss:.4f})")
     
@@ -152,6 +152,8 @@ def valid(model, loader, criterion, device, epoch, epochs, class_names):
     return avg_val_loss, val_accuracy, val_logloss
 
 def test(model_name, test_data_path, transform, batch_size, device, ckpt_path, class_names, submission_sample_path, submission_save_dir):
+    
+    print("Start Test")
     
     test_dataset = CustomImageDataset(test_data_path, transform=transform, is_test=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
