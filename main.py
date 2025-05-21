@@ -4,7 +4,7 @@ import pandas as pd
 from tqdm import tqdm
 from sklearn.metrics import log_loss
 
-import timm
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -12,8 +12,8 @@ import torch.nn.functional as F
 from torch.utils.data import Subset, DataLoader
 from sklearn.model_selection import train_test_split
 
-from utils import seed_everything, build_model
 from dataset import CustomImageDataset, Transform
+from utils import seed_everything, build_model, get_timestamp
 
 
 def main(args):
@@ -21,6 +21,9 @@ def main(args):
     with open(args.config, "r") as f:
         CFG = yaml.safe_load(f)
     CFG["lr"] = float(CFG["lr"]) if isinstance(CFG["lr"], str) else CFG["lr"]
+    
+    if args.batch is not None:
+        CFG["BATCH_SIZE"] = args.batch
     
     print(CFG)
     
@@ -36,9 +39,7 @@ def main(args):
     model_save_dir = CFG["model_save_dir"]
     submission_save_dir = CFG["submission_save_dir"]
     
-    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
     
     seed_everything(seed)
     
@@ -70,6 +71,8 @@ def main(args):
     
     best_logloss = float('inf')
     
+    saved_ckpt_path_set = set()
+    
     for epoch in range(epochs):
         avg_train_loss, train_acc = train(model, train_loader, criterion, optimizer, device, epoch, epochs)
         avg_val_loss, valid_acc, val_logloss = valid(model, val_loader, criterion, device, epoch, epochs, class_names)
@@ -78,9 +81,16 @@ def main(args):
         
         if val_logloss < best_logloss:
             best_logloss = val_logloss
-            model_save_path = os.path.join(model_save_dir, f"{args.model}-{epoch}-{val_logloss:.4f}-best.pth")
+            timestamp = get_timestamp()
+            model_save_path = os.path.join(model_save_dir, f"{args.model}-{epoch}-{val_logloss:.4f}-{timestamp}.pth")
+            saved_ckpt_path_set.add(model_save_path)
             torch.save(model.state_dict(), model_save_path)
             print(f"📦 Best model saved at epoch {epoch+1} (logloss: {val_logloss:.4f})")
+    
+    # 최종 best모델 제외하고 체크포인트 삭제
+    del_model_set = saved_ckpt_path_set - set([model_save_path])
+    for del_model_path in del_model_set:
+        os.remove(del_model_path)
     
     if args.test:
         del model
@@ -185,7 +195,8 @@ def test(model_name, test_data_path, transform, batch_size, device, ckpt_path, c
     class_columns = submission.columns[1:]
     pred = pred[class_columns]
     
-    submission_save_path = os.path.join(submission_save_dir, f"{os.path.basename(ckpt_path).split('.')[0]}.csv")
+    submission[class_columns] = pred.values
+    submission_save_path = os.path.join(submission_save_dir, f"{'.'.join(os.path.basename(ckpt_path).split('.')[:-1])}.csv")
     submission.to_csv(submission_save_path, index=False, encoding='utf-8-sig')
     
     print(f"Submission csv saved: {submission_save_path}")
@@ -196,7 +207,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", "-c", type=str, default="config.yaml")
     parser.add_argument("--test", "-t", action="store_false")
-    parser.add_argument("--model", "-m", default="eff_v2")
+    parser.add_argument("--model", "-m", default="eff_v2", help="bit, eff_v2, eff_vit, vit_h, vit_l")
+    parser.add_argument("--batch", type=int, default=None)
     args = parser.parse_args()
     
     main(args)
