@@ -40,7 +40,10 @@ def get_optimizer(model, name, lr, weight_decay):
         return SGD(model.parameters(), lr=lr, weight_decay=weight_decay, momentum=0.9)
     else:
         raise ValueError(f"Unsupported optimizer: {name}")
-    
+
+def get_current_lr(optimizer):
+    return optimizer.param_groups[0]["lr"]
+
 def build_model(backbone, num_classes, device=None):
     if backbone not in MODEL_BACKBONE_MAP:
         raise Exception(f"[!] Unknown backbone: {backbone}")

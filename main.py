@@ -7,14 +7,13 @@ from sklearn.metrics import log_loss
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import Subset, DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from sklearn.model_selection import train_test_split
 
 from dataset import CustomImageDataset, Transform
-from utils import seed_everything, build_model, get_timestamp, get_optimizer
+from utils import seed_everything, build_model, get_timestamp, get_optimizer, get_current_lr
 
 
 def main(args):
@@ -42,7 +41,7 @@ def main(args):
     
     wandb.init(
         project="hai_car_cls",
-        name=f"{args.model}_{args.optim}",
+        name=f"{args.model}-{args.optim}-{get_timestamp()}",
         config={
             "model": args.model,
             "optimizer": args.optim,
@@ -53,8 +52,6 @@ def main(args):
             "weight_decay": CFG.get("weight_decay", 0.01)
         }
     )
-    
-    
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -74,9 +71,8 @@ def main(args):
     val_dataset = Subset(CustomImageDataset(train_data_path, transform=transform["train"]), val_idx)
     print(f'train 이미지 수: {len(train_dataset)}, valid 이미지 수: {len(val_dataset)}')
     
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-    
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True, persistent_workers=True)
     
     ## model init
     model = build_model(args.model, len(class_names), device)
@@ -96,8 +92,11 @@ def main(args):
         avg_train_loss, train_acc = train(model, train_loader, criterion, optimizer, device, epoch, epochs)
         avg_val_loss, valid_acc, val_logloss = valid(model, val_loader, criterion, device, epoch, epochs, class_names)
         
+        scheduler.step(val_logloss)
+
         wandb.log({
             "epoch": epoch,
+            "lr": get_current_lr(optimizer),
             "train_loss": avg_train_loss,
             "train_acc": train_acc,
             "val_loss": avg_val_loss,
@@ -105,14 +104,13 @@ def main(args):
             "val_logloss": val_logloss
         })
         
-        scheduler.step(val_logloss)
-        
         print(f"Train Loss : {avg_train_loss:.4f} || Valid Loss : {avg_val_loss:.4f} | Valid Accuracy : {valid_acc:.4f}% | Valid Log Loss : {val_logloss:.5f}")
         
         if val_logloss < best_logloss:
             best_logloss = val_logloss
             timestamp = get_timestamp()
-            model_save_path = os.path.join(model_save_dir, f"{args.model}-{epoch}-{val_logloss:.4f}-{timestamp}.pth")
+            model_save_path = os.path.join(model_save_dir, timestamp.split("_")[0], f"{args.model}-{epoch}-{val_logloss:.4f}-{timestamp}.pth")
+            os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
             saved_ckpt_path_set.add(model_save_path)
             torch.save(model.state_dict(), model_save_path)
             print(f"📦 Best model saved at epoch {epoch+1} (logloss: {val_logloss:.4f})")
