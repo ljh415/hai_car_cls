@@ -1,5 +1,6 @@
 import os
 import yaml
+import wandb
 import pandas as pd
 from tqdm import tqdm
 from sklearn.metrics import log_loss
@@ -38,6 +39,22 @@ def main(args):
     submission_sample_path = CFG["submission_path"]
     model_save_dir = CFG["model_save_dir"]
     submission_save_dir = CFG["submission_save_dir"]
+    
+    wandb.init(
+        project="hai_car_cls",
+        name=f"{args.model}_{args.optim}",
+        config={
+            "model": args.model,
+            "optimizer": args.optim,
+            "lr": lr,
+            "batch_size": batch_size,
+            "epochs": epochs,
+            "img_size": img_size,
+            "weight_decay": CFG.get("weight_decay", 0.01)
+        }
+    )
+    
+    
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -78,6 +95,15 @@ def main(args):
     for epoch in range(epochs):
         avg_train_loss, train_acc = train(model, train_loader, criterion, optimizer, device, epoch, epochs)
         avg_val_loss, valid_acc, val_logloss = valid(model, val_loader, criterion, device, epoch, epochs, class_names)
+        
+        wandb.log({
+            "epoch": epoch,
+            "train_loss": avg_train_loss,
+            "train_acc": train_acc,
+            "val_loss": avg_val_loss,
+            "val_acc": valid_acc,
+            "val_logloss": val_logloss
+        })
         
         scheduler.step(val_logloss)
         
@@ -129,7 +155,7 @@ def train(model, loader, criterion, optimizer, device, epoch, epochs):
         correct += (preds == labels).sum().item()
         total += labels.size(0)
     
-    avg_loss = running_loss / total
+    avg_loss = running_loss / len(loader)
     accuracy = correct / total
     
     return avg_loss, accuracy
@@ -217,3 +243,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     main(args)
+    wandb.finish()
