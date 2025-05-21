@@ -9,10 +9,11 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import Subset, DataLoader
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from sklearn.model_selection import train_test_split
 
 from dataset import CustomImageDataset, Transform
-from utils import seed_everything, build_model, get_timestamp
+from utils import seed_everything, build_model, get_timestamp, get_optimizer
 
 
 def main(args):
@@ -66,7 +67,9 @@ def main(args):
     ## train setting
     
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    weight_decay = CFG.get("weight_decay", 0.01)
+    optimizer = get_optimizer(model, args.optim, lr, weight_decay)
+    scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=3, factor=0.1)
     
     best_logloss = float('inf')
     
@@ -75,6 +78,8 @@ def main(args):
     for epoch in range(epochs):
         avg_train_loss, train_acc = train(model, train_loader, criterion, optimizer, device, epoch, epochs)
         avg_val_loss, valid_acc, val_logloss = valid(model, val_loader, criterion, device, epoch, epochs, class_names)
+        
+        scheduler.step(val_logloss)
         
         print(f"Train Loss : {avg_train_loss:.4f} || Valid Loss : {avg_val_loss:.4f} | Valid Accuracy : {valid_acc:.4f}% | Valid Log Loss : {val_logloss:.5f}")
         
@@ -208,6 +213,7 @@ if __name__ == "__main__":
     parser.add_argument("--test", "-t", action="store_false")
     parser.add_argument("--model", "-m", default="eff_v2", help="bit, eff_v2, eff_vit, vit_h, vit_l")
     parser.add_argument("--batch", type=int, default=None)
+    parser.add_argument("--optim", type=str, default="Adam")
     args = parser.parse_args()
     
     main(args)
