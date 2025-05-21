@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 
 from dataset import CustomImageDataset, Transform
 from utils import seed_everything, build_model, get_timestamp, get_optimizer, get_current_lr
-
+from utils import MODEL_BATCHSIZE_MAP, MODEL_IMG_SIZE_MAP
 
 def main(args):
     
@@ -24,6 +24,12 @@ def main(args):
     
     if args.batch is not None:
         CFG["BATCH_SIZE"] = args.batch
+    if args.epochs:
+        CFG["EPOCHS"] = args.epochs
+    if args.lr:
+        CFG["lr"] = args.lr
+    if args.weight_decay:
+        CFG["weight_decay"] = args.weight_decay
     
     print(CFG)
     
@@ -33,25 +39,28 @@ def main(args):
     batch_size = CFG["BATCH_SIZE"]
     train_data_path = CFG["train_root"]
     test_data_path = CFG["test_root"]
-    img_size = CFG["IMG_SIZE"]
     seed = CFG["SEED"]
     submission_sample_path = CFG["submission_path"]
     model_save_dir = CFG["model_save_dir"]
     submission_save_dir = CFG["submission_save_dir"]
     
-    wandb.init(
-        project="hai_car_cls",
-        name=f"{args.model}-{args.optim}-{get_timestamp()}",
-        config={
-            "model": args.model,
-            "optimizer": args.optim,
-            "lr": lr,
-            "batch_size": batch_size,
-            "epochs": epochs,
-            "img_size": img_size,
-            "weight_decay": CFG.get("weight_decay", 0.01)
-        }
-    )
+    ##
+    wandb.init(project="hai_car_cls")
+    
+    model_name = wandb.config.model
+    optimizer_name = wandb.config.optimizer
+    lr = wandb.config.lr
+    weight_decay = wandb.config.weight_decay
+    epochs = wandb.config.epochs
+    
+    batch_size = MODEL_BATCHSIZE_MAP.get(model_name, CFG["BATCH_SIZE"])
+    wandb.config.update({"batch_size": batch_size}, allow_val_change=True)
+    
+    img_size = MODEL_IMG_SIZE_MAP.get(model_name, CFG["IMG_SIZE"])
+    wandb.config.update({"img_size": img_size}, allow_val_change=True)
+    
+    wandb.run.name = f"{model_name}-{batch_size}-{epochs}-{optimizer_name}-{lr}-{weight_decay}-{get_timestamp()}"
+    wandb.run.save()
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -75,13 +84,12 @@ def main(args):
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True, persistent_workers=True)
     
     ## model init
-    model = build_model(args.model, len(class_names), device)
+    model = build_model(model_name, len(class_names), device)
     
     ## train setting
     
     criterion = nn.CrossEntropyLoss()
-    weight_decay = CFG.get("weight_decay", 0.01)
-    optimizer = get_optimizer(model, args.optim, lr, weight_decay)
+    optimizer = get_optimizer(model, optimizer_name, lr, weight_decay)
     scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=3, factor=0.1)
     
     best_logloss = float('inf')
@@ -109,7 +117,7 @@ def main(args):
         if val_logloss < best_logloss:
             best_logloss = val_logloss
             timestamp = get_timestamp()
-            model_save_path = os.path.join(model_save_dir, timestamp.split("_")[0], f"{args.model}-{epoch}-{val_logloss:.4f}-{timestamp}.pth")
+            model_save_path = os.path.join(model_save_dir, timestamp.split("_")[0], f"{model_name}-{epoch}-{val_logloss:.4f}-{timestamp}.pth")
             os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
             saved_ckpt_path_set.add(model_save_path)
             torch.save(model.state_dict(), model_save_path)
@@ -224,7 +232,8 @@ def test(model_name, test_data_path, transform, batch_size, device, ckpt_path, c
     pred = pred[class_columns]
     
     submission[class_columns] = pred.values
-    submission_save_path = os.path.join(submission_save_dir, f"{'.'.join(os.path.basename(ckpt_path).split('.')[:-1])}.csv")
+    submission_save_path = os.path.join(submission_save_dir, get_timestamp().split("_")[0], f"{'.'.join(os.path.basename(ckpt_path).split('.')[:-1])}.csv")
+    os.makedirs(os.path.dirname(submission_save_path), exist_ok=True)
     submission.to_csv(submission_save_path, index=False, encoding='utf-8-sig')
     
     print(f"Submission csv saved: {submission_save_path}")
@@ -237,7 +246,10 @@ if __name__ == "__main__":
     parser.add_argument("--test", "-t", action="store_false")
     parser.add_argument("--model", "-m", default="eff_v2", help="bit, eff_v2, eff_vit, vit_h, vit_l")
     parser.add_argument("--batch", type=int, default=None)
-    parser.add_argument("--optim", type=str, default="Adam")
+    parser.add_argument("--optimizer", type=str, default="Adam")
+    parser.add_argument("--epochs", type=int, default=None)
+    parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--weight_decay", type=float, default=None)
     args = parser.parse_args()
     
     main(args)
