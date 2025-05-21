@@ -1,7 +1,7 @@
 import os
-import datetime
 import random
 import numpy as np
+from datetime import datetime
 
 import timm
 import torch
