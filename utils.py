@@ -5,15 +5,6 @@ import numpy as np
 import timm
 import torch
 
-
-# CFG = {
-#     'IMG_SIZE': 224,
-#     'BATCH_SIZE': 64,
-#     'EPOCHS': 10,
-#     'LEARNING_RATE': 1e-4,
-#     'SEED' : 42
-# }
-
 def seed_everything(seed):
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -39,8 +30,8 @@ def build_model(backbone, num_classes, device=None):
         )
     elif backbone == "eff_v2":
         model = timm.create_model(
-            "efficientnetv2_l",
-            pretrained=False,
+            "tf_efficientnetv2_l.in21k",
+            pretrained=True,
             num_classes=num_classes
         )
     elif backbone == "eff_vit":
