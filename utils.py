@@ -17,6 +17,26 @@ MODEL_BACKBONE_MAP = {
     "swinv2": ("swinv2_base_window12to24_192to384.ms_in22k_ft_in1k", 0.2),
 }
 
+MODEL_IMG_SIZE_MAP = {
+    "vit_h": 224,
+    "vit_l": 224,
+    "convnextv2": 224,
+    "swinv2": 384,
+    "bit": 224,
+    "eff_v2": 224,
+    "eff_vit": 224,
+}
+
+MODEL_BATCHSIZE_MAP = {
+    "vit_h": 16,
+    "vit_l": 48,
+    "convnextv2": 32,
+    "swinv2": 8,
+    "bit": 128,
+    "eff_v2": 40,
+    "eff_vit": 120,
+}
+
 def get_timestamp():
     now = datetime.now()  
     timestamp = now.strftime("%y%m%d_%H%M%S")
@@ -50,11 +70,17 @@ def build_model(backbone, num_classes, device=None):
     
     model_name, drop_path_rate = MODEL_BACKBONE_MAP[backbone]
 
+    kwargs = {
+        "pretrained": True,
+        "num_classes": num_classes
+    }
+    
+    if drop_path_rate > 0:
+        kwargs["drop_path_rate"] = drop_path_rate
+    
     model = timm.create_model(
         model_name,
-        pretrained=True,
-        num_classes=num_classes,
-        drop_path_rate=drop_path_rate  # 적용
+        **kwargs
     )
     
     if device is not None:
