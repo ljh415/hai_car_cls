@@ -1,9 +1,15 @@
 import os
+import datetime
 import random
 import numpy as np
 
 import timm
 import torch
+
+def get_timestamp():
+    now = datetime.now()  
+    timestamp = now.strftime("%y%m%d_%H%M%S")
+    return timestamp
 
 def seed_everything(seed):
     random.seed(seed)
