@@ -35,8 +35,10 @@ def main(args):
     full_dataset = CustomImageDataset(train_data_path, transform=None)
     class_names = full_dataset.classes
     
+    model_name = args.ckpt.split("-")[0]
+    
     test(
-            model_name="eff_v2",
+            model_name=model_name,
             test_data_path=test_data_path,
             transform=transform["test"],
             batch_size=batch_size,
