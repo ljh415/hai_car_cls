@@ -74,7 +74,7 @@ def main(args):
         avg_train_loss, train_acc = train(model, train_loader, criterion, optimizer, device, epoch, epochs)
         avg_val_loss, valid_acc, val_logloss = valid(model, val_loader, criterion, device, epoch, epochs, class_names)
         
-        print(f"Train Loss : {avg_train_loss:.4f} || Valid Loss : {avg_val_loss:.4f} | Valid Accuracy : {valid_acc:.4f}%")
+        print(f"Train Loss : {avg_train_loss:.4f} || Valid Loss : {avg_val_loss:.4f} | Valid Accuracy : {valid_acc:.4f}% | Valid Log Loss : {val_logloss:.5f}")
         
         if val_logloss < best_logloss:
             best_logloss = val_logloss
@@ -98,7 +98,6 @@ def main(args):
 
 def train(model, loader, criterion, optimizer, device, epoch, epochs):
     model.train()
-    best_logloss = float("inf")
     running_loss = 0.0
     correct = 0
     total = 0
