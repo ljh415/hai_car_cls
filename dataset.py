@@ -51,6 +51,12 @@ class Transform:
     def __init__(self, img_size):
         self.transforms = {
             "train": transforms.Compose([
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.RandomRotation(degrees=15),
+                transforms.RandomApply([
+                    transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.02),
+                ], p=0.5),
+                transforms.RandomGrayscale(p=0.3),
                 transforms.Resize((img_size, img_size)),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
