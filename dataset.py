@@ -52,11 +52,14 @@ class Transform:
         self.transforms = {
             "train": transforms.Compose([
                 transforms.RandomHorizontalFlip(p=0.5),
-                transforms.RandomRotation(degrees=15),
+                transforms.RandomPerspective(distortion_scale=0.3, p=0.3),
+                transforms.RandomAffine(degrees=10, translate=(0.05, 0.05), scale=(0.95, 1.05), shear=5),
                 transforms.RandomApply([
-                    transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.02),
-                ], p=0.5),
-                transforms.RandomGrayscale(p=0.3),
+                    transforms.ColorJitter(brightness=0.05, contrast=0.05, saturation=0.03, hue=0.01)
+                ], p=0.2),
+                transforms.RandomApply([
+                    transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.0))
+                ], p=0.2),
                 transforms.Resize((img_size, img_size)),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
