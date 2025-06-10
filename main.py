@@ -30,6 +30,10 @@ def main(args):
         CFG["lr"] = args.lr
     if args.weight_decay:
         CFG["weight_decay"] = args.weight_decay
+    if args.model:
+        CFG["model"] = args.model
+    if args.optimizer:
+        CFG["optimizer"] = args.optimizer
     
     print(CFG)
     
@@ -45,13 +49,13 @@ def main(args):
     submission_save_dir = CFG["submission_save_dir"]
     
     ##
-    wandb.init(project="hai_car_cls")
+    wandb.init(project="hai_car_cls", config=CFG)
     
     model_name = wandb.config.model
     optimizer_name = wandb.config.optimizer
     lr = wandb.config.lr
     weight_decay = wandb.config.weight_decay
-    epochs = wandb.config.epochs
+    epochs = wandb.config.EPOCHS
     
     batch_size = MODEL_BATCHSIZE_MAP.get(model_name, CFG["BATCH_SIZE"])
     wandb.config.update({"batch_size": batch_size}, allow_val_change=True)
